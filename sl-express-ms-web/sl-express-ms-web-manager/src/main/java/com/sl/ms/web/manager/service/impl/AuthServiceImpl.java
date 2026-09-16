@@ -1,10 +1,14 @@
 package com.sl.ms.web.manager.service.impl;
 
+import cn.hutool.captcha.CaptchaUtil;
+import cn.hutool.captcha.LineCaptcha;
+import cn.hutool.captcha.generator.MathGenerator;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.ObjectUtil;
+import com.google.common.net.HttpHeaders;
 import com.itheima.auth.sdk.common.Result;
 import com.itheima.auth.sdk.dto.*;
 import com.sl.ms.base.api.common.WorkSchedulingFeign;
@@ -18,15 +22,16 @@ import com.sl.ms.web.manager.vo.auth.SysUserVO;
 import com.sl.transport.common.util.AuthTemplateThreadLocal;
 import com.sl.transport.common.util.PageResponse;
 import com.sl.transport.common.vo.R;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -35,12 +40,18 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     @Value("${role.courier}")
     private String roleId;
-    @Resource
-    private WorkSchedulingFeign workSchedulingFeign;
+
+    private static final String CAPTCHA_KEY = "captcha_key:";
+
+    private final WorkSchedulingFeign workSchedulingFeign;
+    private final StringRedisTemplate stringRedisTemplate;
+
+
 
     /**
      * 登录
@@ -69,7 +80,20 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void createCaptcha(String key, HttpServletResponse response) throws IOException {
-        //TODO 待实现
+        //生成验证码
+        LineCaptcha captcha = CaptchaUtil.createLineCaptcha(115, 42,4,4);
+        captcha.setGenerator(new MathGenerator(1));
+        String code = captcha.getCode();
+
+        //将验证码的值写入redis，有效期为1分钟
+        String redisKey = CAPTCHA_KEY + key;
+        stringRedisTemplate.opsForValue().set(redisKey,code, 1, TimeUnit.MINUTES);
+
+        // 输出到页面，设置页面不缓存
+        response.setHeader(HttpHeaders.PRAGMA, "No-cache");
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "No-cache");
+        response.setDateHeader(HttpHeaders.EXPIRES, 0L);
+        captcha.write(response.getOutputStream());
     }
 
     @Override

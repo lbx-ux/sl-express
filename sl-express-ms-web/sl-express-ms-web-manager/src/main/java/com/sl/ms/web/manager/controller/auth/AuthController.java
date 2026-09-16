@@ -45,7 +45,7 @@ public class AuthController {
     @ApiOperation(value = "验证码", notes = "验证码")
     @GetMapping(value = "/captcha", produces = "image/png")
     public void captcha(@RequestParam(value = "key") String key, HttpServletResponse response) throws IOException {
-        //TODO 待实现
+        authService.createCaptcha(key, response);
     }
 
     /**
