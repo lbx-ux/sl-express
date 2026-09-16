@@ -1,0 +1,17 @@
+# IDE
+.idea/
+
+# Java
+*.class
+target/
+*.jar
+
+# Maven
+.mvn/timing.properties
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
