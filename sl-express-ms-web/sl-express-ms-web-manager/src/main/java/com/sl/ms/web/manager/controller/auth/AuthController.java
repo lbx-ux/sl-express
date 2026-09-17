@@ -38,8 +38,8 @@ public class AuthController {
     @PostMapping(value = "/login")
     @ApiOperation(value = "登录", notes = "登录")
     public R<LoginDTO> login(@RequestBody LoginParamDTO login) {
-        //TODO 待实现
-        return null;
+        LoginDTO loginDTO = authService.login(login);
+        return R.success(loginDTO);
     }
 
     @ApiOperation(value = "验证码", notes = "验证码")

@@ -23,7 +23,7 @@ public interface AuthService {
      * @param login 用户登录信息
      * @return 登录结果
      */
-    R<LoginDTO> login(LoginParamDTO login);
+    LoginDTO login(LoginParamDTO login);
 
     /**
      * 登录获取token
@@ -32,7 +32,7 @@ public interface AuthService {
      * @param password 密码
      * @return 登录信息
      */
-    R<LoginDTO> login(String account, String password);
+    LoginDTO login(String account, String password);
 
     /**
      * 生成验证码

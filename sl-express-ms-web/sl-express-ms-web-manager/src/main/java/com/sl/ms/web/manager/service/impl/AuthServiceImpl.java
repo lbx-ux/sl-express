@@ -8,8 +8,10 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
 import com.google.common.net.HttpHeaders;
 import com.itheima.auth.sdk.common.Result;
+import com.itheima.auth.sdk.common.Token;
 import com.itheima.auth.sdk.dto.*;
 import com.sl.ms.base.api.common.WorkSchedulingFeign;
 import com.sl.ms.base.domain.base.WorkSchedulingDTO;
@@ -19,6 +21,7 @@ import com.sl.ms.web.manager.service.AuthService;
 import com.sl.ms.web.manager.vo.agency.AgencySimpleVO;
 import com.sl.ms.web.manager.vo.auth.CourierVO;
 import com.sl.ms.web.manager.vo.auth.SysUserVO;
+import com.sl.transport.common.exception.SLWebException;
 import com.sl.transport.common.util.AuthTemplateThreadLocal;
 import com.sl.transport.common.util.PageResponse;
 import com.sl.transport.common.vo.R;
@@ -60,9 +63,32 @@ public class AuthServiceImpl implements AuthService {
      * @return 登录结果
      */
     @Override
-    public R<LoginDTO> login(LoginParamDTO login) {
-        //TODO 待实现
-        return null;
+    public LoginDTO login(LoginParamDTO login) {
+        //1. 对参数进行校验
+        if(StrUtil.isBlank(login.getCode())){
+            throw new SLWebException("验证码不能为空");
+        }
+        if(StrUtil.isBlank(login.getAccount())){
+            throw new SLWebException("账户不能为空");
+        }
+        if(StrUtil.isBlank(login.getPassword())){
+            throw new SLWebException("密码不能为空");
+        }
+
+        //2. 校验验证码
+        String key = CAPTCHA_KEY + login.getKey();
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if(StrUtil.isBlank(value)){
+            throw new SLWebException("验证码已过期");
+        }
+        // 验证码只能使用一次，所以在使用过验证码之后一定要删除验证码
+        stringRedisTemplate.delete(key);
+        boolean verify = new MathGenerator().verify(value, login.getCode());
+        if(!verify){
+            throw new SLWebException("验证码输入错误");
+        }
+        //3. 校验用户名和密码，校验通过生成token
+        return login(login.getAccount(),login.getPassword());
     }
 
     /**
@@ -73,9 +99,28 @@ public class AuthServiceImpl implements AuthService {
      * @return 登录信息
      */
     @Override
-    public R<LoginDTO> login(String account, String password) {
-        //TODO 待实现
-        return null;
+    public LoginDTO login(String account, String password) {
+        //说明：由于后台系统的账号在后面会由【权限管家】系统中管理，由于【权限管家】目前还没学习，所以这里的登录先做【模拟实现】
+        if (!(StrUtil.equals(account, "sl") && StrUtil.equals(password, "123"))) {
+            throw new SLWebException("用户名或密码错误");
+        }
+
+        LoginDTO loginDTO = new LoginDTO();
+
+        //设置token
+        Token token = new Token();
+        token.setToken("eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMDI0NzA1NzA5MjU1NzczMzQ1IiwiYWNjb3VudCI6InNoZW5saW5nYWRtaW4iLCJuYW1lIjoi56We6aKG566h55CG5ZGYIiwib3JnaWQiOjEwMjQ3MDQ4NDQ0ODY3NTY2NDEsInN0YXRpb25pZCI6MTAyNDcwNTQ4OTQzNjQ5NDcyMSwiYWRtaW5pc3RyYXRvciI6ZmFsc2UsImV4cCI6MTY4MDc5NjE5OX0.W4RrB4p5YmjgEcdyGbbL4UrdWFirFbUu_e8Pgwxgr6vBVnj5z40JcFG4X3nIbrIXcSXUldi6oEuNfqAtZ9dUUw");
+        token.setExpire(9999);
+        loginDTO.setToken(token);
+
+        //设置用户信息
+        UserDTO userDTO = new UserDTO();
+        userDTO.setAccount(account);
+        userDTO.setName("神领管理员");
+        //其它属性暂时不设置
+        loginDTO.setUser(userDTO);
+
+        return loginDTO;
     }
 
     @Override
