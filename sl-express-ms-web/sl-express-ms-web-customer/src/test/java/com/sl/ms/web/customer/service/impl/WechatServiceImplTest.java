@@ -1,5 +1,6 @@
 package com.sl.ms.web.customer.service.impl;
 
+import cn.hutool.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -15,7 +16,9 @@ class WechatServiceImplTest {
     @Test
     void getOpenid() {
         try {
-            wechatService.getOpenid("091LmxGa1w2kAD0KCAFa1VzCvm2LmxGB");
+            JSONObject openid = wechatService.getOpenid("0e3TNGkl2BtMri4mfDll2rLLGF4TNGkK");
+            System.out.println("------------------------------------");
+            System.out.println(openid);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
