@@ -103,10 +103,10 @@ public class AuthServiceImpl implements AuthService {
     public LoginDTO login(String account, String password) {
         // 对接权限管家
         Result<LoginDTO> result = authTemplate.opsForLogin().token(account, password);
-        if(ObjectUtil.equal(result.getCode(),0)){
+        if(ObjectUtil.equal(result.getCode(),Result.success().getCode())){
             return result.getData();
         }
-        throw new SLWebException(result.getMsg());
+        throw new SLWebException("登录失败");
     }
 
     @Override

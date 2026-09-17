@@ -23,7 +23,7 @@ public class LoginController {
     @ApiOperation(value = "账号登录", notes = "登录")
     @PostMapping(value = "/account")
     public R<String> accountLogin(@RequestBody AccountLoginVO accountLoginVO) {
-        //TODO 待完成
-        return null;
+        String token = loginService.accountLogin(accountLoginVO);
+        return R.success(token);
     }
 }
