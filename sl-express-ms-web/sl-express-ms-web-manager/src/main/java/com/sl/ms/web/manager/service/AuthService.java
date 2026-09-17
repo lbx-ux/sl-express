@@ -6,8 +6,6 @@ import com.itheima.auth.sdk.dto.UserDTO;
 import com.sl.ms.web.manager.vo.auth.CourierVO;
 import com.sl.ms.web.manager.vo.auth.SysUserVO;
 import com.sl.transport.common.util.PageResponse;
-import com.sl.transport.common.vo.R;
-
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;

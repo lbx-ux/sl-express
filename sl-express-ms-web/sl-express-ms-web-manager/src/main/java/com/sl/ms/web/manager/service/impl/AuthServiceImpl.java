@@ -10,6 +10,7 @@ import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import com.google.common.net.HttpHeaders;
+import com.itheima.auth.sdk.AuthTemplate;
 import com.itheima.auth.sdk.common.Result;
 import com.itheima.auth.sdk.common.Token;
 import com.itheima.auth.sdk.dto.*;
@@ -24,7 +25,6 @@ import com.sl.ms.web.manager.vo.auth.SysUserVO;
 import com.sl.transport.common.exception.SLWebException;
 import com.sl.transport.common.util.AuthTemplateThreadLocal;
 import com.sl.transport.common.util.PageResponse;
-import com.sl.transport.common.vo.R;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +53,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final WorkSchedulingFeign workSchedulingFeign;
     private final StringRedisTemplate stringRedisTemplate;
+    private final AuthTemplate authTemplate;
 
 
 
@@ -100,27 +101,12 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public LoginDTO login(String account, String password) {
-        //说明：由于后台系统的账号在后面会由【权限管家】系统中管理，由于【权限管家】目前还没学习，所以这里的登录先做【模拟实现】
-        if (!(StrUtil.equals(account, "sl") && StrUtil.equals(password, "123"))) {
-            throw new SLWebException("用户名或密码错误");
+        // 对接权限管家
+        Result<LoginDTO> result = authTemplate.opsForLogin().token(account, password);
+        if(ObjectUtil.equal(result.getCode(),0)){
+            return result.getData();
         }
-
-        LoginDTO loginDTO = new LoginDTO();
-
-        //设置token
-        Token token = new Token();
-        token.setToken("eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMDI0NzA1NzA5MjU1NzczMzQ1IiwiYWNjb3VudCI6InNoZW5saW5nYWRtaW4iLCJuYW1lIjoi56We6aKG566h55CG5ZGYIiwib3JnaWQiOjEwMjQ3MDQ4NDQ0ODY3NTY2NDEsInN0YXRpb25pZCI6MTAyNDcwNTQ4OTQzNjQ5NDcyMSwiYWRtaW5pc3RyYXRvciI6ZmFsc2UsImV4cCI6MTY4MDc5NjE5OX0.W4RrB4p5YmjgEcdyGbbL4UrdWFirFbUu_e8Pgwxgr6vBVnj5z40JcFG4X3nIbrIXcSXUldi6oEuNfqAtZ9dUUw");
-        token.setExpire(9999);
-        loginDTO.setToken(token);
-
-        //设置用户信息
-        UserDTO userDTO = new UserDTO();
-        userDTO.setAccount(account);
-        userDTO.setName("神领管理员");
-        //其它属性暂时不设置
-        loginDTO.setUser(userDTO);
-
-        return loginDTO;
+        throw new SLWebException(result.getMsg());
     }
 
     @Override
