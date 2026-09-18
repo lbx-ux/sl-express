@@ -16,7 +16,7 @@ class WechatServiceImplTest {
     @Test
     void getOpenid() {
         try {
-            JSONObject openid = wechatService.getOpenid("0e3TNGkl2BtMri4mfDll2rLLGF4TNGkK");
+            JSONObject openid = wechatService.getOpenid("0b3zva200fUW6X1gZk300CyAbB4zva2l");
             System.out.println("------------------------------------");
             System.out.println(openid);
         } catch (IOException e) {
@@ -27,7 +27,9 @@ class WechatServiceImplTest {
     @Test
     void getPhone() {
         try {
-            wechatService.getPhone("98b024c7236c108003a5ebc2c7ea59be30636059395899389f82960d07e85fcc");
+            String phone = wechatService.getPhone("92ddeee8e7833e495bd962009b1017448eb5ada21b43545a184fd3d2efebc324");
+            System.out.println("---------------------------------");
+            System.out.println(phone);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
