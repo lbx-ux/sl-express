@@ -4,7 +4,6 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.IdcardUtil;
-import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import com.sl.ms.base.domain.enums.StatusEnum;
 import com.sl.ms.user.api.MemberFeign;
@@ -16,16 +15,14 @@ import com.sl.ms.web.customer.vo.user.MemberVO;
 import com.sl.ms.web.customer.vo.user.RealNameVerifyVO;
 import com.sl.ms.web.customer.vo.user.UserLoginRequestVO;
 import com.sl.ms.web.customer.vo.user.UserLoginVO;
-import com.sl.transport.common.constant.Constants;
 import com.sl.transport.common.exception.SLWebException;
 import com.sl.transport.common.service.RealNameVerifyService;
 import com.sl.transport.common.util.ObjectUtil;
 import com.sl.transport.common.util.UserThreadLocal;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.Map;
 
@@ -34,19 +31,12 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class MemberServiceImpl implements MemberService {
-
-    @Resource
-    private MemberFeign memberFeign;
-
-    @Resource
-    private TokenService tokenService;
-
-    @Resource
-    private WechatService wechatService;
-
-    @Resource
-    private RealNameVerifyService realNameVerifyService;
+    private final MemberFeign memberFeign;
+    private final TokenService tokenService;
+    private final WechatService wechatService;
+    private final RealNameVerifyService realNameVerifyService;
 
     //实名认证默认关闭
     @Value("${real-name-registration.enable}")
@@ -60,8 +50,42 @@ public class MemberServiceImpl implements MemberService {
      */
     @Override
     public UserLoginVO login(UserLoginRequestVO userLoginRequestVO) throws IOException {
-        //TODO 待实现
-        return null;
+        //1. 根据登录凭证code获取openid等信息
+        JSONObject jsonObject = wechatService.getOpenid(userLoginRequestVO.getCode());
+        String openid = jsonObject.getStr("openid");
+        //2. 根据openid判断是否为新用户
+        MemberDTO memberDTO = this.getByOpenid(openid);
+        if(ObjectUtil.isEmpty(memberDTO)){
+            // 新用户
+            memberDTO = MemberDTO.builder()
+                    .openId(openid)
+                    .authId(jsonObject.getStr("unionid"))
+                    .build();
+            // 新增用户
+            this.save(memberDTO);
+            // 再次查询数据库，把构造时不能自己赋值的值取出来
+            memberDTO = this.getByOpenid(openid);
+
+        }
+        //3. 判断用户手机号是否有更新，如果有更新就更新用户信息
+        String phone = wechatService.getPhone(userLoginRequestVO.getPhoneCode());
+        if(ObjectUtil.notEqual(memberDTO.getPhone(), phone)){
+            // 手机号发生了变化，更新手机号
+            memberDTO.setPhone(phone);
+            this.memberFeign.update(memberDTO.getId(),memberDTO);
+        }
+        Map<String, Object> claims = MapUtil.<String, Object>builder()
+                .put("userId", memberDTO.getId())
+                .build();
+        //4. 生成token，登录成功
+        String accessToken = tokenService.createAccessToken(claims);
+        String refreshToken = tokenService.createRefreshToken(claims);
+        return UserLoginVO.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .openid(openid)
+                .binding(1)
+                .build();
     }
 
     @Override
@@ -169,7 +193,6 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     public UserLoginVO refresh(String refreshToken) {
-        //TODO 待实现
-        return null;
+        return tokenService.refreshToken(refreshToken);
     }
 }

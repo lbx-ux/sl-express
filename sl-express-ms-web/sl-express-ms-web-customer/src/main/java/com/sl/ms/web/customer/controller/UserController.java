@@ -6,7 +6,6 @@ import com.sl.ms.web.customer.vo.user.RealNameVerifyVO;
 import com.sl.ms.web.customer.vo.user.UserLoginRequestVO;
 import com.sl.ms.web.customer.vo.user.UserLoginVO;
 import com.sl.transport.common.constant.Constants;
-import com.sl.transport.common.util.ObjectUtil;
 import com.sl.transport.common.util.UserThreadLocal;
 import com.sl.transport.common.vo.R;
 import io.swagger.annotations.Api;
@@ -39,8 +38,7 @@ public class UserController {
     @PostMapping("/login")
     @ApiOperation("登录")
     public R<UserLoginVO> login(@RequestBody UserLoginRequestVO userLoginRequestVO) throws IOException {
-        //TODO 待实现、
-        return null;
+        return R.success(memberService.login(userLoginRequestVO));
     }
     /**
      * 刷新token，校验请求头中的长令牌，生成新的长短令牌
@@ -51,8 +49,7 @@ public class UserController {
     @PostMapping("/refresh")
     @ApiOperation("刷新token")
     public R<UserLoginVO> refresh(@RequestHeader(Constants.GATEWAY.REFRESH_TOKEN) String refreshToken) {
-        //TODO 待实现
-        return null;
+        return  R.success(memberService.refresh(refreshToken));
     }
 
     @ApiOperation(value = "更新个人信息")
