@@ -5,10 +5,12 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.itheima.auth.sdk.dto.AuthUserInfoDTO;
 import com.sl.gateway.config.MyConfig;
+import com.sl.transport.common.constant.Constants;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -35,7 +37,7 @@ public class TokenGatewayFilter implements GatewayFilter , Ordered {
         String token = exchange.getRequest().getHeaders().getFirst(authFilter.tokenHeaderName());
         if(StrUtil.isEmpty(token)){
             // 非法请求，响应401
-            exchange.getResponse().setStatusCode(HttpStatus.MULTI_STATUS);
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             // 拦截请求
             return exchange.getResponse().setComplete();
         }
@@ -60,10 +62,12 @@ public class TokenGatewayFilter implements GatewayFilter , Ordered {
         }
 
         //4. 校验通过，向下游传递用户信息和token
-        exchange.getRequest().mutate().header("userInfo", JSONUtil.toJsonStr(authUserInfoDTO));
-        exchange.getRequest().mutate().header("token", token);
-
-        return chain.filter(exchange);
+        ServerHttpRequest newRequest = exchange.getRequest().mutate()
+                .header(Constants.GATEWAY.USERINFO, JSONUtil.toJsonStr(authUserInfoDTO))
+                .header(Constants.GATEWAY.TOKEN, token)
+                .build();
+        // 用 exchange.mutate() 把新 request 放回 exchange
+        return chain.filter(exchange.mutate().request(newRequest).build());
     }
 
     @Override

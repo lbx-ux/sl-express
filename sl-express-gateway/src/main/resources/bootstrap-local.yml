@@ -33,14 +33,39 @@ spring:
         locator:
           enabled: true #表明gateway开启服务注册和发现的功能，并且spring cloud gateway自动根据服务发现为每一个服务创建了一个router，这个router将以服务名开头的请求路径转发到对应的服务
       routes:
-        - id: sl-express-ms-web-manager #路由标识，需要唯一
-          uri: lb://sl-express-ms-web-manager #最终请求转发的微服务，指定的是微服务名，并开启负载均衡
-          predicates: #断言
+        - id: sl-express-ms-web-courier
+          uri: lb://sl-express-ms-web-courier
+          predicates:
+            - Path=/courier/**
+          filters:
+            - StripPrefix=1
+            - CourierToken
+            - AddRequestHeader=X-Request-From, sl-express-gateway
+        - id: sl-express-ms-web-customer
+          uri: lb://sl-express-ms-web-customer
+          predicates:
+            - Path=/customer/**
+          filters:
+            - StripPrefix=1
+            - CustomerToken
+            - AddRequestHeader=X-Request-From, sl-express-gateway
+        - id: sl-express-ms-web-driver
+          uri: lb://sl-express-ms-web-driver
+          predicates:
+            - Path=/driver/**
+          filters:
+            - StripPrefix=1
+            - DriverToken
+            - AddRequestHeader=X-Request-From, sl-express-gateway
+        - id: sl-express-ms-web-manager
+          uri: lb://sl-express-ms-web-manager
+          predicates:
             - Path=/manager/**
-          filters: #配置过滤器
-            - ManagerToken #自定义局部过滤器
-            - StripPrefix=1 #去掉第一个路径，例如：/manager/user/login -转发到下游微服务-> /user/login
-            - AddRequestHeader=X-Request-From, sl-express-gateway  #转发到下游微服务携带的请求头，增强安全性
+          filters:
+            - StripPrefix=1
+            - ManagerToken
+            - AddRequestHeader=X-Request-From, sl-express-gateway
+
 itcast:
   authority:
     host: ${authority.host} #authority服务地址,根据实际情况更改
