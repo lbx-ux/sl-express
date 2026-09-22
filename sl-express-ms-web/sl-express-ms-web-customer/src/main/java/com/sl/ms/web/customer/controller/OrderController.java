@@ -10,6 +10,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,10 +24,10 @@ import java.util.Map;
 @Api(tags = "订单管理")
 @RequestMapping("order-manager/order")
 @Slf4j
+@RequiredArgsConstructor
 public class OrderController {
 
-    @Resource
-    private OmsService omsService;
+    private final OmsService omsService;
 
     @ApiOperation(value = "获取订单分页数据")
     @PostMapping("/page")

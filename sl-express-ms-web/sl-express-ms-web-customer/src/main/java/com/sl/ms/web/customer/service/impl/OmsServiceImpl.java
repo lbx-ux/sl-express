@@ -48,6 +48,7 @@ import com.sl.transport.common.util.UserThreadLocal;
 import com.sl.transport.info.api.TransportInfoFeign;
 import com.sl.transport.info.domain.TransportInfoDTO;
 import io.seata.spring.annotation.GlobalTransactional;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -63,40 +64,20 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OmsServiceImpl implements OmsService {
 
-    @Resource
-    private OrderFeign orderFeign;
-
-    @Resource
-    private AreaFeign areaFeign;
-
-    @Resource
-    private CargoFeign cargoFeign;
-
-    @Resource
-    private GoodFeign goodFeign;
-
-    @Resource
-    private BaseService baseService;
-
-    @Resource
-    private TransportInfoFeign transportInfoFeign;
-
-    @Resource
-    private MemberService memberService;
-
-    @Resource
-    private PickupDispatchTaskFeign pickupDispatchTaskFeign;
-
-    @Resource
-    private JsapiPayFeign jsapiPayFeign;
-
-    @Resource
-    private MemberFeign memberFeign;
-
-    @Resource
-    private TransportOrderFeign transportOrderFeign;
+    private final OrderFeign orderFeign;
+    private final AreaFeign areaFeign;
+    private final CargoFeign cargoFeign;
+    private final GoodFeign goodFeign;
+    private final BaseService baseService;
+    private final TransportInfoFeign transportInfoFeign;
+    private final MemberService memberService;
+    private final PickupDispatchTaskFeign pickupDispatchTaskFeign;
+    private final JsapiPayFeign jsapiPayFeign;
+    private final MemberFeign memberFeign;
+    private final TransportOrderFeign transportOrderFeign;
 
     @Value("${sl.wechat.enterpriseId}")
     private Long enterpriseId;
