@@ -17,11 +17,10 @@ import com.sl.ms.oms.service.OrderService;
 import com.sl.transport.common.util.PageResponse;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
-
-import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,18 +32,13 @@ import java.util.stream.Collectors;
 @Api(tags = "订单管理")
 @RestController
 @RequestMapping("order")
+@RequiredArgsConstructor
 public class OrderController {
 
-    @Resource
-    private OrderService orderService;
-    @Resource
-    private OrderLocationService orderLocationService;
-
-    @Resource
-    private CrudOrderService crudOrderService;
-
-    @Resource
-    private OrderCargoService orderCargoService;
+    private final OrderService orderService;
+    private final OrderLocationService orderLocationService;
+    private final CrudOrderService crudOrderService;
+    private final OrderCargoService orderCargoService;
 
 
     /**

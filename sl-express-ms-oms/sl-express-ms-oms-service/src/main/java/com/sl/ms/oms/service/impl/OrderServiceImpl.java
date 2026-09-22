@@ -39,12 +39,10 @@ import com.sl.ms.work.domain.enums.pickupDispatchtask.PickupDispatchTaskType;
 import com.sl.transport.common.constant.Constants;
 import com.sl.transport.common.exception.SLException;
 import com.sl.transport.common.vo.OrderMsg;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-
-import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
@@ -57,31 +55,17 @@ import java.util.stream.Collectors;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> implements OrderService {
 
-    @Resource
-    private MQFeign mqFeign;
-
-    @Autowired
-    private AddressBookFeign addressBookFeign;
-
-    @Autowired
-    private CrudOrderService crudOrderService;
-
-    @Resource
-    AreaFeign areaFeign;
-
-    @Resource
-    ServiceScopeFeign agencyScopeFeign;
-
-    @Resource
-    private EagleMapTemplate eagleMapTemplate;
-
-    @Resource
-    private CarriageFeign carriageFeign;
-
-    @Resource
-    private TransportLineFeign transportLineFeign;
+    private final MQFeign mqFeign;
+    private final AddressBookFeign addressBookFeign;
+    private final CrudOrderService crudOrderService;
+    final AreaFeign areaFeign;
+    final ServiceScopeFeign agencyScopeFeign;
+    private final EagleMapTemplate eagleMapTemplate;
+    private final CarriageFeign carriageFeign;
+    private final TransportLineFeign transportLineFeign;
 
     /**
      * 下单
@@ -187,7 +171,16 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderEntity> impl
                 .weight(mailingSaveDTO.getTotalWeight().doubleValue())
                 .build();
 
-        CarriageDTO compute = carriageFeign.compute(waybillDTO);
+        /*CarriageDTO compute = carriageFeign.compute(waybillDTO);
+        if (ObjectUtil.isEmpty(compute)) {
+            throw new SLException(StrUtil.format("计算运费出错 mailingSaveDTO {}", mailingSaveDTO));
+        }
+        return compute;*/
+        CarriageDTO compute = new CarriageDTO();
+        compute.setComputeWeight(1d); //计费重量
+        compute.setContinuousWeight(5d); //续重价格
+        compute.setFirstWeight(10d); //首重价格
+        compute.setExpense(10d); //运费
         if (ObjectUtil.isEmpty(compute)) {
             throw new SLException(StrUtil.format("计算运费出错 mailingSaveDTO {}", mailingSaveDTO));
         }
