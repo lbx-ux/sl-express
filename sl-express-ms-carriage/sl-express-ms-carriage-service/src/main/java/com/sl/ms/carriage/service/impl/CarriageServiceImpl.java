@@ -1,15 +1,23 @@
 package com.sl.ms.carriage.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.ObjectUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.sl.ms.carriage.domain.constant.CarriageConstant;
 import com.sl.ms.carriage.domain.dto.CarriageDTO;
 import com.sl.ms.carriage.entity.CarriageEntity;
+import com.sl.ms.carriage.enums.CarriageExceptionEnum;
 import com.sl.ms.carriage.mapper.CarriageMapper;
 import com.sl.ms.carriage.service.CarriageService;
 import com.sl.ms.carriage.utils.CarriageUtils;
+import com.sl.transport.common.exception.SLException;
+import com.sl.transport.common.exception.SLWebException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,13 +28,12 @@ public class CarriageServiceImpl extends ServiceImpl<CarriageMapper, CarriageEnt
 
     @Override
     public List<CarriageDTO> findAll() {
-        // 构造查询条件
-        LambdaQueryWrapper<CarriageEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(CarriageEntity::getCreated);
-        // 查询数据库
-        List<CarriageEntity> list = this.list(wrapper);
+        //查询数据库
+        List<CarriageEntity> list = this.lambdaQuery()
+                .orderByDesc(CarriageEntity::getCreated)
+                .list();
 
-        if (ObjectUtil.isEmpty(list)) {
+        if (CollUtil.isEmpty(list)) {
             return Collections.emptyList();
         }
 
@@ -34,5 +41,60 @@ public class CarriageServiceImpl extends ServiceImpl<CarriageMapper, CarriageEnt
                 //转化对象，返回集合数据
                 .map(CarriageUtils::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public CarriageDTO saveOrUpdate(CarriageDTO carriageDto) {
+        //1.从数据库中根据模板类型查询数据
+        List<CarriageEntity> list = this.lambdaQuery()
+                .eq(CarriageEntity::getTemplateType, carriageDto.getTemplateType())
+                .eq(CarriageEntity::getTransportType, carriageDto.getTransportType())
+                .list();
+
+        //2.判断是否为经济区互寄
+        //非经济区
+        if(ObjectUtil.notEqual(carriageDto.getTemplateType(),CarriageConstant.ECONOMIC_ZONE)){
+            //新增(id为空) 且该类型模板已存在 → 抛异常
+            if(ObjectUtil.isEmpty(carriageDto.getId()) && CollUtil.isNotEmpty(list)){
+                throw new SLException(CarriageExceptionEnum.NOT_ECONOMIC_ZONE_REPEAT);
+            }
+            //更新：排除自己后还有同类型模板 → 抛异常
+            long count = list.stream()
+                    .filter(carriageEntity -> ObjectUtil.notEqual(carriageEntity.getId(), carriageDto.getId()))
+                    .count();
+            if(count > 0){
+                throw new SLException(CarriageExceptionEnum.NOT_ECONOMIC_ZONE_REPEAT);
+            }
+            return this.saveOrUpdateCarriage(carriageDto);
+        }
+        //经济区
+        //无同类模板，无需查重，直接落库
+        if(CollUtil.isEmpty(list)){
+            return saveOrUpdateCarriage(carriageDto);
+        }
+
+        //判断重复的思路：先将查询出的运费模板中的关联城市收集起来，传入的关联城市是否在此集合中
+        List<String> associatedCityList = list.stream()
+                .filter(e -> ObjectUtil.notEqual(e.getId(), carriageDto.getId()))
+                .map(CarriageEntity::getAssociatedCity)      // Stream<String>
+                .map(city -> StrUtil.split(city, ','))       // Stream<List<String>>
+                .flatMap(List::stream)                       // Stream<String> ← JDK 写法
+                .collect(Collectors.toList());
+        //取交集，如果存在交集说明重复
+        Collection<String> intersection = CollUtil.intersection(associatedCityList, carriageDto.getAssociatedCityList());
+        if(CollUtil.isNotEmpty(intersection)){
+            throw new SLException(CarriageExceptionEnum.ECONOMIC_ZONE_CITY_REPEAT);
+        }
+        //不重复
+        return this.saveOrUpdateCarriage(carriageDto);
+    }
+
+    private CarriageDTO saveOrUpdateCarriage(CarriageDTO carriageDto){
+        CarriageEntity entity = CarriageUtils.toEntity(carriageDto);
+        boolean result = this.saveOrUpdate(entity);
+        if(BooleanUtil.isTrue(result)){
+            return CarriageUtils.toDTO(entity);
+        }
+        throw new SLWebException(CarriageExceptionEnum.SAVE_OR_UPDATE_ERROR);
     }
 }

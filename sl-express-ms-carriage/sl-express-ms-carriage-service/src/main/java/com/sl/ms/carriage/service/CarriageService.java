@@ -17,4 +17,13 @@ public interface CarriageService extends IService<CarriageEntity> {
      * @return 运费模板对象列表
      */
     List<CarriageDTO> findAll();
+
+    /**
+     * 新增/修改运费模板
+     *
+     * @param carriageDto 新增/修改运费对象
+     *                    必填字段：templateType、transportType
+     *                    更新时传入id字段
+     */
+    CarriageDTO saveOrUpdate(CarriageDTO carriageDto);
 }
