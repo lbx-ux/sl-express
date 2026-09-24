@@ -2,6 +2,7 @@ package com.sl.ms.carriage.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.sl.ms.carriage.domain.dto.CarriageDTO;
+import com.sl.ms.carriage.domain.dto.WaybillDTO;
 import com.sl.ms.carriage.entity.CarriageEntity;
 
 import java.util.List;
@@ -26,4 +27,12 @@ public interface CarriageService extends IService<CarriageEntity> {
      *                    更新时传入id字段
      */
     CarriageDTO saveOrUpdate(CarriageDTO carriageDto);
+    /**
+     * 运费计算
+     *
+     * @param waybillDTO 运费计算对象
+     * @return 运费模板对象，不仅包含模板数据还包含：computeWeight、expense 字段
+     */
+    CarriageDTO compute(WaybillDTO waybillDTO);
+
 }
