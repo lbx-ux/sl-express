@@ -16,4 +16,14 @@ public interface TransportLineRepository {
      * @return 路线
      */
     TransportLineNodeDTO findShortestPath(AgencyEntity start, AgencyEntity end);
+
+    /**
+     * 查询两个网点之间成本最少的路线，查询深度为：10
+     *
+     * @param start 开始网点
+     * @param end   结束网点
+     * @return 路线
+     */
+    TransportLineNodeDTO findCostLowerPath(AgencyEntity start, AgencyEntity end);
+
 }
