@@ -34,4 +34,6 @@ public interface CarriageService extends IService<CarriageEntity> {
      * @return 运费模板对象，不仅包含模板数据还包含：computeWeight、expense 字段
      */
     CarriageDTO compute(WaybillDTO waybillDTO);
+
+    void delete(Long id);
 }

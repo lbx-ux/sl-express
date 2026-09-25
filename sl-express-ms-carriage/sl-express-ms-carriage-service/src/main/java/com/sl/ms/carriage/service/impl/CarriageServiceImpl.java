@@ -120,6 +120,11 @@ public class CarriageServiceImpl extends ServiceImpl<CarriageMapper, CarriageEnt
         return carriageDTO;
     }
 
+    @Override
+    public void delete(Long id) {
+        this.removeById(id);
+    }
+
     //根据体积参数与实际重量计算计费重量
     private double getComputeWeight(WaybillDTO waybillDTO, CarriageEntity carriage){
         //1.计算体积
