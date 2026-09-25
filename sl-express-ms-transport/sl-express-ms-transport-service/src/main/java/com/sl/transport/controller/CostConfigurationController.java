@@ -19,7 +19,7 @@ import java.util.List;
 @Api(tags = "成本配置")
 @RequestMapping("cost-configuration")
 @Validated
-@RestController
+//@RestController
 public class CostConfigurationController {
     @Resource
     private CostConfigurationService costConfigurationService;

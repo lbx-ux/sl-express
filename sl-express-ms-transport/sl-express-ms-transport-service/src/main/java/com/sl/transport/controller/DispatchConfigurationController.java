@@ -18,7 +18,7 @@ import javax.annotation.Resource;
 @Api(tags = "调度配置")
 @RequestMapping("dispatch-configuration")
 @Validated
-@RestController
+//@RestController
 public class DispatchConfigurationController {
     @Resource
     private DispatchConfigurationService dispatchConfigurationService;
