@@ -27,7 +27,7 @@ import java.util.List;
 @Api(tags = "机构服务")
 @RequestMapping("organs")
 @Validated
-//@RestController
+@RestController
 public class OrganController {
 
     @Resource
