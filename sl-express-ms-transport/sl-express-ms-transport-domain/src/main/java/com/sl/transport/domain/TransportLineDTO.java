@@ -15,7 +15,7 @@ import javax.validation.constraints.Min;
 @Data
 public class TransportLineDTO {
 
-    @ApiModelProperty(value = "名称", required = true)
+    @ApiModelProperty(value = "id", required = true)
     private Long id;
     @ApiModelProperty(value = "编号")
     private String number;
