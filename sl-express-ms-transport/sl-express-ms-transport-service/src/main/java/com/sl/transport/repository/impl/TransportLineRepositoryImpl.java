@@ -22,7 +22,6 @@ import org.neo4j.driver.types.Relationship;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.data.neo4j.core.schema.Node;
 import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
 
@@ -99,7 +98,15 @@ public class TransportLineRepositoryImpl implements TransportLineRepository {
     //删除路线
     @Override
     public Long remove(Long lineId) {
-        return 0L;
+        String delete = StrUtil.format("MATCH (n)-[r]->(m) \n" +
+                "WHERE id(r)=$id\n" +
+                "DELETE r\n" +
+                "RETURN count(r) AS count");
+        return neo4jClient.query(delete)
+                .bind(lineId).to("id")
+                .fetchAs(Long.class)
+                .one()
+                .orElse(0L);
     }
 
     //分页查询路线
@@ -183,13 +190,39 @@ public class TransportLineRepositoryImpl implements TransportLineRepository {
 
     //根据ids批量查询路线
     @Override
-    public List<TransportLine> queryByIds(Long... ids) {
-        return List.of();
+    public List<TransportLine> queryByIds(List<Long> ids) {
+        String query = StrUtil.format("MATCH (n)-[r]->(m)\n" +
+                "WHERE id(r) in {}\n" +
+                "return n,m,r",ids);
+        return executeQuery(query);
     }
+
 
     //根据id查询路线
     @Override
     public TransportLine queryById(Long id) {
-        return null;
+        String query = StrUtil.format("MATCH (n)-[r]->(m)\n" +
+                "WHERE id(r) = {}\n" +
+                "return n,m,r",id);
+        return CollUtil.getFirst(executeQuery(query));
     }
+
+    private List<TransportLine> executeQuery(String query) {
+        return ListUtil.toList(neo4jClient.query(query)
+                .fetchAs(TransportLine.class)
+                .mappedBy(((typeSystem, record) -> {
+                    org.neo4j.driver.types.Node start = record.get("n").asNode();
+                    org.neo4j.driver.types.Node end = record.get("m").asNode();
+                    Relationship relationship = record.get("r").asRelationship();
+                    Map<String, Object> map = relationship.asMap();
+                    TransportLine transportLine = BeanUtil.toBean(map, TransportLine.class);
+                    transportLine.setStartOrganName(start.get("name").asString());
+                    transportLine.setEndOrganName(end.get("name").asString());
+                    return transportLine;
+                }))
+                .all());
+    }
+
+
+
 }

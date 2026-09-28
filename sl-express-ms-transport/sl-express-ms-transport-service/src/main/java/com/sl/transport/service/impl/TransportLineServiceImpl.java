@@ -139,7 +139,7 @@ public class TransportLineServiceImpl implements TransportLineService {
     //删除路线
     @Override
     public Boolean deleteLine(Long id) {
-        return null;
+        return transportLineRepository.remove(id)>0;
     }
 
     //分页查询路线
@@ -168,13 +168,13 @@ public class TransportLineServiceImpl implements TransportLineService {
 
     //根据ids批量查询路线
     @Override
-    public List<TransportLine> queryByIds(Long... ids) {
-        return List.of();
+    public List<TransportLine> queryByIds(List<Long> ids) {
+        return transportLineRepository.queryByIds(ids);
     }
 
     //根据id查询路线
     @Override
     public TransportLine queryById(Long id) {
-        return null;
+        return transportLineRepository.queryById(id);
     }
 }

@@ -13,11 +13,11 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import javax.annotation.Resource;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.List;
@@ -32,10 +32,10 @@ import java.util.List;
 @RequestMapping("transports")
 @Validated
 @RestController
+@Slf4j
+@RequiredArgsConstructor
 public class TransportLineController {
-
-    @Resource
-    private TransportLineService transportLineService;
+    private final TransportLineService transportLineService;
 
     @ApiImplicitParams({
             @ApiImplicitParam(name = "startId", value = "开始网点业务id", required = true),
@@ -98,7 +98,7 @@ public class TransportLineController {
     public void deleteLine(@PathVariable("id") Long id) {
         Boolean result = this.transportLineService.deleteLine(id);
         if (!result) {
-            throw new SLException("更新路线失败！", HttpStatus.INTERNAL_SERVER_ERROR.value());
+            throw new SLException("删除路线失败！", HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
     }
 
@@ -117,7 +117,7 @@ public class TransportLineController {
     })
     @ApiOperation(value = "根据ids批量查询路线", notes = "根据ids批量查询路线")
     @GetMapping("list")
-    public List<TransportLineDTO> queryByIds(@Size(min = 1, message = "至少要传入1个id") @RequestParam("ids") Long[] ids) {
+    public List<TransportLineDTO> queryByIds(@Size(min = 1, message = "至少要传入1个id") @RequestParam("ids") List<Long>ids) {
         List<TransportLine> list = this.transportLineService.queryByIds(ids);
         return TransportLineUtils.toDTOList(list);
     }

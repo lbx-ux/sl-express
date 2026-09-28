@@ -97,7 +97,7 @@ public interface TransportLineRepository {
      * @param ids id列表
      * @return 路线列表
      */
-    List<TransportLine> queryByIds(Long... ids);
+    List<TransportLine> queryByIds(List<Long>ids);
 
     /**
      * 根据id查询路线
