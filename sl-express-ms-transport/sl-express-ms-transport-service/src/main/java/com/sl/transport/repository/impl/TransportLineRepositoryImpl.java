@@ -1,6 +1,12 @@
 package com.sl.transport.repository.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
+import cn.hutool.core.convert.Convert;
+import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.PageUtil;
 import cn.hutool.core.util.StrUtil;
 import com.sl.transport.common.util.PageResponse;
 import com.sl.transport.domain.TransportLineNodeDTO;
@@ -10,14 +16,19 @@ import com.sl.transport.entity.node.AgencyEntity;
 import com.sl.transport.entity.node.BaseEntity;
 import com.sl.transport.repository.TransportLineRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.types.Relationship;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.data.neo4j.core.schema.Node;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class TransportLineRepositoryImpl implements TransportLineRepository {
     private final Neo4jClient neo4jClient;
 
@@ -94,7 +105,80 @@ public class TransportLineRepositoryImpl implements TransportLineRepository {
     //分页查询路线
     @Override
     public PageResponse<TransportLine> queryPageList(TransportLineSearchDTO transportLineSearchDTO) {
-        return null;
+        int page = Math.max(transportLineSearchDTO.getPage(), 1);
+        int pageSize = transportLineSearchDTO.getPageSize();
+        int skip = (page - 1) * pageSize;
+
+        //将查询 DTO 对象提取为一个“干净”的业务查询参数 Map，自动过滤掉空值字段，并剥离分页参数。
+        Map<String, Object> map = BeanUtil.beanToMap(transportLineSearchDTO, false, true);
+        MapUtil.removeAny(map,"page","pageSize");
+
+        String[] query = buildPageQueryCypher(map);
+        String queryCypher = query[0];
+        String countCypher = query[1];
+        //查询路线
+        List<TransportLine> transportLines = ListUtil.toList(neo4jClient.query(queryCypher)
+                .bind(skip).to("skip")
+                .bind(pageSize).to("limit")
+                .bindAll(map)
+                .fetchAs(TransportLine.class)
+                .mappedBy(((typeSystem, record) -> toTranLine(record)))
+                .all());
+
+        //计算查询出来的总数
+        Long total = neo4jClient.query(countCypher)
+                .bindAll(map)
+                .fetchAs(Long.class)
+                .one()
+                .orElse(0L);
+
+        PageResponse<TransportLine> pageResponse = new PageResponse<>();
+        pageResponse.setPage(page);
+        pageResponse.setPageSize(pageSize);
+        pageResponse.setItems(transportLines);
+        pageResponse.setCounts(total);
+        Long pages = Convert.toLong(PageUtil.totalPage(Convert.toInt(total), pageSize));
+        pageResponse.setPages(pages);
+
+        return pageResponse;
+    }
+
+    private TransportLine toTranLine(Record record) {
+        org.neo4j.driver.types.Node startNode = record.get("m").asNode();
+        org.neo4j.driver.types.Node endNode = record.get("n").asNode();
+        Relationship relationship = record.get("r").asRelationship();
+        Map<String, Object> map = relationship.asMap();
+
+        TransportLine transportLine = BeanUtil.toBeanIgnoreError(map, TransportLine.class);
+        transportLine.setStartOrganName(startNode.get("name").asString());
+        transportLine.setStartOrganId(startNode.get("bid").asLong());
+        transportLine.setEndOrganName(endNode.get("name").asString());
+        transportLine.setEndOrganId(endNode.get("bid").asLong());
+        transportLine.setId(relationship.id());
+        return transportLine;
+    }
+
+    private String[] buildPageQueryCypher(Map<String, Object> searchParam){
+        String prefix="MATCH (m) -[r]-> (n) WHERE 1=1 ";
+        String query="";
+        if(CollUtil.isNotEmpty(searchParam)){
+            if(ObjectUtil.isNotEmpty(searchParam.get("name"))){
+                query+="AND r.name CONTAINS $name ";
+            }
+            if(ObjectUtil.isNotEmpty(searchParam.get("number"))){
+                query+="AND r.number = $number ";
+            }
+            if(ObjectUtil.isNotEmpty(searchParam.get("startOrganId"))){
+                query+="AND r.startOrganId = $startOrganId ";
+            }
+            if(ObjectUtil.isNotEmpty(searchParam.get("endOrganId"))){
+                query+="AND r.endOrganId = $endOrganId ";
+            }
+        }
+        String queryCypher=prefix+query+" RETURN m,r,n ORDER BY id(r) DESC SKIP $skip LIMIT $limit";
+        String countCypher=prefix+query+" return count(r) AS count";
+
+        return new  String[]{queryCypher,countCypher};
     }
 
     //根据ids批量查询路线

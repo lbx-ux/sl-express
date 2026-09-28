@@ -145,7 +145,7 @@ public class TransportLineServiceImpl implements TransportLineService {
     //分页查询路线
     @Override
     public PageResponse<TransportLine> queryPageList(TransportLineSearchDTO transportLineSearchDTO) {
-        return null;
+        return transportLineRepository.queryPageList(transportLineSearchDTO);
     }
 
     //查询两个网点之间最短的路线，最大查询深度为：10
