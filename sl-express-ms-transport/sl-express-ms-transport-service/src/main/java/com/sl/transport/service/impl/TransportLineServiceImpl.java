@@ -23,6 +23,7 @@ import com.sl.transport.entity.node.TLTEntity;
 import com.sl.transport.enums.ExceptionEnum;
 import com.sl.transport.enums.TransportLineEnum;
 import com.sl.transport.repository.TransportLineRepository;
+import com.sl.transport.service.CostConfigurationService;
 import com.sl.transport.service.OrganService;
 import com.sl.transport.service.TransportLineService;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,7 @@ public class TransportLineServiceImpl implements TransportLineService {
     private final TransportLineRepository transportLineRepository;
     private final EagleMapTemplate eagleMapTemplate;
     private final OrganService organService;
-    //private final CostConfigurationService costConfigurationService;
+    private final CostConfigurationService costConfigurationService;
 
     //新增路线
     @Override
@@ -125,8 +126,8 @@ public class TransportLineServiceImpl implements TransportLineService {
         transportLine.setDistance(NumberUtil.round(distance, 0).doubleValue());
 
         // 总成本 = 每公里平均成本 * 距离（单位：米） / 1000
-        /*Double cost = costConfigurationService.findCostByType(transportLine.getType());
-        transportLine.setCost(NumberUtil.round(cost * distance / 1000, 2).doubleValue());*/
+        Double cost = costConfigurationService.findCostByType(transportLine.getType());
+        transportLine.setCost(NumberUtil.round(cost * distance / 1000, 2).doubleValue());
     }
 
     //更新路线

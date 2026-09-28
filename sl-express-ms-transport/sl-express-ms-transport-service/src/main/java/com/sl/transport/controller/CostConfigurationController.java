@@ -4,10 +4,9 @@ import com.sl.transport.domain.CostConfigurationDTO;
 import com.sl.transport.service.CostConfigurationService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import javax.annotation.Resource;
 import java.util.List;
 
 /**
@@ -19,10 +18,10 @@ import java.util.List;
 @Api(tags = "成本配置")
 @RequestMapping("cost-configuration")
 @Validated
-//@RestController
+@RestController
+@RequiredArgsConstructor
 public class CostConfigurationController {
-    @Resource
-    private CostConfigurationService costConfigurationService;
+    private final CostConfigurationService costConfigurationService;
 
     @ApiOperation(value = "查询成本配置")
     @GetMapping

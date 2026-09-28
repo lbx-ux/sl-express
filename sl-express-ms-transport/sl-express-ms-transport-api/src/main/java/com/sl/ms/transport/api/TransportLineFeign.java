@@ -84,7 +84,7 @@ public interface TransportLineFeign {
      * @return 路线列表
      */
     @GetMapping("list")
-    List<TransportLineDTO> queryByIds(@RequestParam("ids") Long... ids);
+    List<TransportLineDTO> queryByIds(@RequestParam("ids") List<Long> ids);
 
     /**
      * 分页查询路线，如果有条件就进行筛选查询
