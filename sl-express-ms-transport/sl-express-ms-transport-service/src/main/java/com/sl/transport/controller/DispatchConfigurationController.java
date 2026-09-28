@@ -4,6 +4,7 @@ import com.sl.transport.domain.DispatchConfigurationDTO;
 import com.sl.transport.service.DispatchConfigurationService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,10 +19,10 @@ import javax.annotation.Resource;
 @Api(tags = "调度配置")
 @RequestMapping("dispatch-configuration")
 @Validated
-//@RestController
+@RestController
+@RequiredArgsConstructor
 public class DispatchConfigurationController {
-    @Resource
-    private DispatchConfigurationService dispatchConfigurationService;
+    private final DispatchConfigurationService dispatchConfigurationService;
 
     @ApiOperation(value = "查询调度配置")
     @GetMapping

@@ -1,5 +1,8 @@
 package com.sl.transport.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.NumberUtil;
@@ -12,6 +15,7 @@ import com.itheima.em.sdk.enums.ProviderEnum;
 import com.itheima.em.sdk.vo.Coordinate;
 import com.sl.transport.common.exception.SLException;
 import com.sl.transport.common.util.PageResponse;
+import com.sl.transport.domain.DispatchConfigurationDTO;
 import com.sl.transport.domain.OrganDTO;
 import com.sl.transport.domain.TransportLineNodeDTO;
 import com.sl.transport.domain.TransportLineSearchDTO;
@@ -20,10 +24,12 @@ import com.sl.transport.entity.node.AgencyEntity;
 import com.sl.transport.entity.node.BaseEntity;
 import com.sl.transport.entity.node.OLTEntity;
 import com.sl.transport.entity.node.TLTEntity;
+import com.sl.transport.enums.DispatchMethodEnum;
 import com.sl.transport.enums.ExceptionEnum;
 import com.sl.transport.enums.TransportLineEnum;
 import com.sl.transport.repository.TransportLineRepository;
 import com.sl.transport.service.CostConfigurationService;
+import com.sl.transport.service.DispatchConfigurationService;
 import com.sl.transport.service.OrganService;
 import com.sl.transport.service.TransportLineService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +46,7 @@ public class TransportLineServiceImpl implements TransportLineService {
     private final EagleMapTemplate eagleMapTemplate;
     private final OrganService organService;
     private final CostConfigurationService costConfigurationService;
+    private final DispatchConfigurationService dispatchConfigurationService;
 
     //新增路线
     @Override
@@ -133,7 +140,18 @@ public class TransportLineServiceImpl implements TransportLineService {
     //更新路线
     @Override
     public Boolean updateLine(TransportLine transportLine) {
-        return null;
+        //1.查询路线，不存在则抛出异常
+        TransportLine transportLineData = queryById(transportLine.getId());
+        if(ObjectUtil.isEmpty(transportLineData)){
+            throw new SLException(ExceptionEnum.TRANSPORT_LINE_NOT_FOUND);
+        }
+        //2.合并数据：忽略 null 字段，且类型、起终点不可修改
+        BeanUtil.copyProperties(transportLine,transportLineData, CopyOptions.create().setIgnoreNullValue(true)
+                .setIgnoreProperties("type","startOrganId","endOrganId","startOrganName","endOrganName","created"));
+        transportLineData.setUpdated(System.currentTimeMillis());
+        //3.更新数据
+        Long result = transportLineRepository.update(transportLineData);
+        return result>0;
     }
 
 
@@ -152,19 +170,42 @@ public class TransportLineServiceImpl implements TransportLineService {
     //查询两个网点之间最短的路线，最大查询深度为：10
     @Override
     public TransportLineNodeDTO queryShortestPath(Long startId, Long endId) {
-        return null;
+        AgencyEntity start = AgencyEntity.builder().bid(startId).build();
+        AgencyEntity end = AgencyEntity.builder().bid(endId).build();
+        if(ObjectUtil.hasEmpty(start,end)){
+            throw new SLException(ExceptionEnum.START_END_ORGAN_NOT_FOUND);
+        }
+        return transportLineRepository.findShortestPath(start,end);
     }
 
     //查询两个网点之间成本最低的路线，最大查询深度为：10
     @Override
     public TransportLineNodeDTO findLowestPath(Long startId, Long endId) {
-        return null;
+        AgencyEntity start = AgencyEntity.builder().bid(startId).build();
+        AgencyEntity end = AgencyEntity.builder().bid(endId).build();
+        if(ObjectUtil.hasEmpty(start,end)){
+            throw new SLException(ExceptionEnum.START_END_ORGAN_NOT_FOUND);
+        }
+        List<TransportLineNodeDTO> list = transportLineRepository.findPathList(start, end, 8, 1);
+        if(CollUtil.isEmpty(list)){
+            return null;
+        }
+        return CollUtil.getFirst(list);
     }
 
     //根据调度策略查询路线
     @Override
     public TransportLineNodeDTO queryPathByDispatchMethod(Long startId, Long endId) {
-        return null;
+        //调度方式配置
+        DispatchConfigurationDTO configuration = dispatchConfigurationService.findConfiguration();
+        int method = configuration.getDispatchMethod();
+
+        //调度方式，1转运次数最少，2成本最低
+        if (ObjectUtil.equal(DispatchMethodEnum.SHORTEST_PATH.getCode(), method)) {
+            return this.queryShortestPath(startId, endId);
+        } else {
+            return this.findLowestPath(startId, endId);
+        }
     }
 
     //根据ids批量查询路线

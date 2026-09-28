@@ -15,13 +15,16 @@ import com.sl.transport.entity.line.TransportLine;
 import com.sl.transport.entity.node.AgencyEntity;
 import com.sl.transport.entity.node.BaseEntity;
 import com.sl.transport.repository.TransportLineRepository;
+import com.sl.transport.utils.TransportLineUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.Record;
+import org.neo4j.driver.internal.value.PathValue;
 import org.neo4j.driver.types.Relationship;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.data.neo4j.core.schema.Node;
 import org.springframework.stereotype.Component;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,20 +37,47 @@ public class TransportLineRepositoryImpl implements TransportLineRepository {
     //查询两个网点之间最短的路线，查询深度为：10
     @Override
     public TransportLineNodeDTO findShortestPath(AgencyEntity start, AgencyEntity end) {
-        return null;
+        return findShortestPath(start, end,8);
     }
 
     //查询两个网点之间最短的路线，最大查询深度为：10
     @Override
     public TransportLineNodeDTO findShortestPath(AgencyEntity start, AgencyEntity end, int depth) {
-        return null;
+        String type = AgencyEntity.class.getAnnotation(Node.class).value()[0];
+        String query = StrUtil.format("MATCH path = shortestPath((start:{}) -[*1..{}]-> (end:{})) " +
+                "WHERE start.bid = $startId AND end.bid= $endId AND start.status=true AND end.status=true " +
+                "RETURN path", type, depth,type);
+        List<TransportLineNodeDTO> list = this.executeQueryPath(query, start, end);
+        if(CollUtil.isEmpty(list)){
+            return null;
+        }
+        return CollUtil.getFirst(list);
     }
 
     //查询两个网点之间的路线列表，成本优先 > 转运节点优先
     @Override
     public List<TransportLineNodeDTO> findPathList(AgencyEntity start, AgencyEntity end, int depth, int limit) {
-        return List.of();
+        String type = AgencyEntity.class.getAnnotation(Node.class).value()[0];
+        String query = StrUtil.format("MATCH path = (start:{}) -[*1..{}]-> (end:{}) " +
+                "WHERE start.bid = $startId AND end.bid= $endId AND start.status=true AND end.status=true " +
+                "UNWIND relationships(path) AS r\n" +
+                "WITH sum(r.cost) AS cost, path\n" +
+                "RETURN path ORDER BY cost ASC, LENGTH(path) ASC LIMIT {}",type,depth,type,limit);
+        return this.executeQueryPath(query, start, end);
     }
+
+    private List<TransportLineNodeDTO> executeQueryPath(String query,AgencyEntity start, AgencyEntity end) {
+        return ListUtil.toList(neo4jClient.query(query)
+                .bind(start.getBid()).to("startId") //绑定参数
+                .bind(end.getBid()).to("endId")     //绑定参数
+                .fetchAs(TransportLineNodeDTO.class)       //返回值映射的对象类型
+                .mappedBy((typeSystem, record) -> {    //手动结果映射
+                    PathValue pathValue = (PathValue) record.get(0);
+                    return TransportLineUtils.convert(pathValue);
+                })
+                .all());
+    }
+
 
     //查询数据节点之间的关系数量
     @Override
@@ -92,7 +122,30 @@ public class TransportLineRepositoryImpl implements TransportLineRepository {
     //更新路线
     @Override
     public Long update(TransportLine transportLine) {
-        return 0L;
+        //1.实体转 Map，剔除非关系属性：id 是 Neo4j 内部 id，startOrganName/endOrganName 存在节点上
+        Map<String, Object> props = BeanUtil.beanToMap(transportLine);
+        MapUtil.removeAny(props, "id", "startOrganName", "endOrganName");
+
+        //2.反向关系的属性：起点终点互换（create 时成对创建的另一半）
+        Map<String, Object> reverseProps = new HashMap<>(props);
+        reverseProps.put("startOrganId", transportLine.getEndOrganId());
+        reverseProps.put("endOrganId", transportLine.getStartOrganId());
+
+        //3.成对更新：正向按 id 匹配，反向按相同节点 + 起终点互换匹配
+        String query = "MATCH (m) -[r]-> (n)\n" +
+                "WHERE id(r)=$id\n" +
+                "MATCH (n) -[r2]-> (m)\n" +
+                "WHERE r2.startOrganId = r.endOrganId AND r2.endOrganId = r.startOrganId\n" +
+                "SET r += $props, r2 += $reverseProps\n" +
+                "RETURN count(r) AS count";
+
+        return neo4jClient.query(query)
+                .bind(transportLine.getId()).to("id")
+                .bind(props).to("props")
+                .bind(reverseProps).to("reverseProps")
+                .fetchAs(Long.class)
+                .one()
+                .orElse(0L);
     }
 
     //删除路线
@@ -197,7 +250,6 @@ public class TransportLineRepositoryImpl implements TransportLineRepository {
         return executeQuery(query);
     }
 
-
     //根据id查询路线
     @Override
     public TransportLine queryById(Long id) {
@@ -215,14 +267,12 @@ public class TransportLineRepositoryImpl implements TransportLineRepository {
                     org.neo4j.driver.types.Node end = record.get("m").asNode();
                     Relationship relationship = record.get("r").asRelationship();
                     Map<String, Object> map = relationship.asMap();
-                    TransportLine transportLine = BeanUtil.toBean(map, TransportLine.class);
+                    TransportLine transportLine = BeanUtil.toBeanIgnoreError(map, TransportLine.class);
                     transportLine.setStartOrganName(start.get("name").asString());
                     transportLine.setEndOrganName(end.get("name").asString());
+                    transportLine.setId(relationship.id());
                     return transportLine;
                 }))
                 .all());
     }
-
-
-
 }
