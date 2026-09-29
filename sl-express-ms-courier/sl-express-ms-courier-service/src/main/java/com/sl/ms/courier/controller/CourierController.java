@@ -32,7 +32,7 @@ public class CourierController {
      * @return 快递员id列表
      */
     @ApiOperation("根据用户地址的坐标查询为其服务的快递员列表")
-    @GetMapping("{agencyId}/{longitude}/{latitude}")
+    @GetMapping("{agencyId}/{longitude}/{latitude}/{estimatedEndTime}")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "longitude", value = "经度"),
             @ApiImplicitParam(name = "latitude", value = "纬度"),
