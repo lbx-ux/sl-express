@@ -21,6 +21,7 @@
         <sl-express-common.version>1.2-SNAPSHOT</sl-express-common.version>
         <sl-express-ms-transport-domain.version>1.1-SNAPSHOT</sl-express-ms-transport-domain.version>
         <sl-express-ms-mq.version>1.1-SNAPSHOT</sl-express-ms-mq.version>
+        <sl-express-ms-transport-api.version>1.1-SNAPSHOT</sl-express-ms-transport-api.version>
     </properties>
 
     <dependencies>
@@ -75,6 +76,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.sl-express.ms.transport</groupId>
+            <artifactId>sl-express-ms-transport-api</artifactId>
+            <version>${sl-express-ms-transport-api.version}</version>
         </dependency>
     </dependencies>
 
