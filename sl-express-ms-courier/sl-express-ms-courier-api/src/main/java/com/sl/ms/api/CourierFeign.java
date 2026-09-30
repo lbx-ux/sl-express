@@ -22,7 +22,7 @@ public interface CourierFeign {
      * @param estimatedEndTime 结束取件时间
      * @return 快递员id列表
      */
-    @GetMapping("{agencyId}/{longitude}/{latitude}")
+    @GetMapping("{agencyId}/{longitude}/{latitude}/{estimatedEndTime}")
     List<Long> queryCourierIdListByCondition(@PathVariable("agencyId") Long agencyId,
                                              @PathVariable("longitude") Double longitude,
                                              @PathVariable("latitude") Double latitude,
