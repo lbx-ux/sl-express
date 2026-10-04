@@ -82,7 +82,7 @@ public class UserServiceImpl implements UserService {
 
         //4.筛选出今天同网点的有排班的其他快递员，并封装为vo
         List<UserSimpleInfoVO> userSimpleInfoVOList = workSchedulingDTOList.stream()
-                .filter(x -> ObjectUtil.equal(x.getUserType().intValue(), WorkUserTypeEnum.COURIER.getCode())//快递员角色
+                .filter(x -> ObjectUtil.equal(x.getUserType(), WorkUserTypeEnum.COURIER.getCode())//快递员角色
                         && ObjectUtil.notEqual(x.getUserId(), userDTO.getId()))//不是当前快递员
                 .map(x -> BeanUtil.toBean(x, UserSimpleInfoVO.class))
                 .collect(Collectors.toList());
