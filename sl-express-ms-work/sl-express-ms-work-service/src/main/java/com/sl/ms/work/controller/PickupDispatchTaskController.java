@@ -18,9 +18,9 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
 import java.util.List;
 
 /**
@@ -29,10 +29,9 @@ import java.util.List;
 @RestController
 @Api(tags = "取派件任务")
 @RequestMapping("pickup-dispatch-task")
+@RequiredArgsConstructor
 public class PickupDispatchTaskController {
-
-    @Resource
-    private PickupDispatchTaskService pickupDispatchTaskService;
+    private final PickupDispatchTaskService pickupDispatchTaskService;
 
     @PutMapping
     @ApiOperation(value = "更新取派件任务状态", notes = "更新状态，不允许 NEW 状态")

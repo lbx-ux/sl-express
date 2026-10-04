@@ -46,14 +46,16 @@ public class CourierUserServiceImpl implements CourierUserService {
 
             //查询排班数据，对满足服务范围、网点的快递员筛选排班
             List<WorkSchedulingDTO> workSchedulingDTOS = workSchedulingFeign.monthSchedule(courierIds, agencyId, WorkUserTypeEnum.COURIER.getCode(), estimatedEndTime);
-            //拿到今天有排班的快递员id
-            List<Long> nowCourierIds = workSchedulingDTOS.stream()
-                    .filter(w -> CollUtil.isNotEmpty(w.getWorkSchedules()) && Boolean.TRUE.equals(w.getWorkSchedules().get(0)))
-                    .map(WorkSchedulingDTO::getUserId)
-                    .collect(Collectors.toList());
-            //存在同时满足服务范围、网点、排班的快递员，直接返回
-            if(CollUtil.isNotEmpty(nowCourierIds)){
-                return nowCourierIds;
+            if(CollUtil.isNotEmpty(workSchedulingDTOS)){
+                //拿到今天有排班的快递员id
+                List<Long> nowCourierIds = workSchedulingDTOS.stream()
+                        .filter(w -> CollUtil.isNotEmpty(w.getWorkSchedules()) && Boolean.TRUE.equals(w.getWorkSchedules().get(0)))
+                        .map(WorkSchedulingDTO::getUserId)
+                        .collect(Collectors.toList());
+                //存在同时满足服务范围、网点、排班的快递员，直接返回
+                if(CollUtil.isNotEmpty(nowCourierIds)){
+                    return nowCourierIds;
+                }
             }
         }
         //3.如果服务范围内没有快递员，或服务范围内的快递员没有排班，则查询该网点的任一有排班快递员
