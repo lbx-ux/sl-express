@@ -1,7 +1,9 @@
 package com.sl.ms.work.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
+import cn.hutool.core.convert.Convert;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -28,7 +30,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -231,21 +235,85 @@ public class PickupDispatchTaskServiceImpl extends ServiceImpl<TaskPickupDispatc
 
     @Override
     public boolean deleteByIds(List<Long> ids) {
-        return false;
+        //逻辑删除：将is_deleted设置为1，同时将updated刷新
+        if (CollUtil.isEmpty(ids)) {
+            return false;
+        }
+        return this.lambdaUpdate()
+                .in(PickupDispatchTaskEntity::getId, ids)
+                .set(PickupDispatchTaskEntity::getIsDeleted, PickupDispatchTaskIsDeleted.IS_DELETED)
+                .update();
     }
 
     @Override
     public Integer todayTasksCount(Long courierId, PickupDispatchTaskType taskType, PickupDispatchTaskStatus status, PickupDispatchTaskIsDeleted isDeleted) {
-        return 0;
+        //今日的时间边界
+        DateTime dateTime = DateUtil.date();
+        LocalDateTime startDateTime = DateUtil.beginOfDay(dateTime).toLocalDateTime();
+        LocalDateTime endDateTime = DateUtil.endOfDay(dateTime).toLocalDateTime();
+
+        Long count = this.lambdaQuery()
+                .eq(ObjectUtil.isNotEmpty(courierId), PickupDispatchTaskEntity::getCourierId, courierId)
+                .eq(ObjectUtil.isNotEmpty(taskType), PickupDispatchTaskEntity::getTaskType, taskType)
+                .eq(ObjectUtil.isNotEmpty(status), PickupDispatchTaskEntity::getStatus, status)
+                .eq(ObjectUtil.isNotEmpty(isDeleted), PickupDispatchTaskEntity::getIsDeleted, isDeleted)
+                .between(PickupDispatchTaskEntity::getCreated, startDateTime, endDateTime)
+                .count();
+        return Convert.toInt(count, 0);
     }
 
     @Override
     public List<PickupDispatchTaskDTO> findAll(Long courierId, PickupDispatchTaskType taskType, PickupDispatchTaskStatus taskStatus, PickupDispatchTaskIsDeleted isDeleted) {
-        return List.of();
+        List<PickupDispatchTaskEntity> entities = this.lambdaQuery()
+                .eq(ObjectUtil.isNotEmpty(courierId), PickupDispatchTaskEntity::getCourierId, courierId)
+                .eq(ObjectUtil.isNotEmpty(taskType), PickupDispatchTaskEntity::getTaskType, taskType)
+                .eq(ObjectUtil.isNotEmpty(taskStatus), PickupDispatchTaskEntity::getStatus, taskStatus)
+                .eq(ObjectUtil.isNotEmpty(isDeleted), PickupDispatchTaskEntity::getIsDeleted, isDeleted)
+                .orderByDesc(PickupDispatchTaskEntity::getUpdated)
+                .list();
+        //实体类转为dto
+        return BeanUtil.copyToList(entities, PickupDispatchTaskDTO.class);
     }
 
     @Override
     public PickupDispatchTaskStatisticsDTO todayTaskStatistics(Long courierId) {
-        return null;
+        PickupDispatchTaskStatisticsDTO statisticsDTO = new PickupDispatchTaskStatisticsDTO();
+        //今日的时间边界
+        DateTime dateTime = DateUtil.date();
+        LocalDateTime startDateTime = DateUtil.beginOfDay(dateTime).toLocalDateTime();
+        LocalDateTime endDateTime = DateUtil.endOfDay(dateTime).toLocalDateTime();
+
+        //一次查询出今日该快递员的所有任务，在内存中分组统计，避免多次查库
+        List<PickupDispatchTaskEntity> taskEntities = this.lambdaQuery()
+                .eq(PickupDispatchTaskEntity::getCourierId, courierId)
+                .between(PickupDispatchTaskEntity::getCreated, startDateTime, endDateTime)
+                .list();
+
+        //按任务类型分组：1为取件任务，2为派件任务
+        Map<Integer, List<PickupDispatchTaskEntity>> typeGroupMap = taskEntities.stream()
+                .collect(Collectors.groupingBy(entity -> entity.getTaskType().getCode()));
+
+        //取件任务统计：总数、新任务、已完成、已取消
+        List<PickupDispatchTaskEntity> pickupList = typeGroupMap.getOrDefault(PickupDispatchTaskType.PICKUP.getCode(), Collections.emptyList());
+        statisticsDTO.setPickupNum(pickupList.size());
+        Map<PickupDispatchTaskStatus, Long> pickupStatusCountMap = pickupList.stream()
+                .collect(Collectors.groupingBy(PickupDispatchTaskEntity::getStatus, Collectors.counting()));
+        statisticsDTO.setNewPickUpNum(Convert.toInt(pickupStatusCountMap.getOrDefault(PickupDispatchTaskStatus.NEW, 0L), 0));
+        statisticsDTO.setCompletePickUpNum(Convert.toInt(pickupStatusCountMap.getOrDefault(PickupDispatchTaskStatus.COMPLETED, 0L), 0));
+        statisticsDTO.setCancelPickUpNum(Convert.toInt(pickupStatusCountMap.getOrDefault(PickupDispatchTaskStatus.CANCELLED, 0L), 0));
+
+        //派件任务统计：总数、新任务（待派件）、已签收、已取消
+        List<PickupDispatchTaskEntity> dispatchList = typeGroupMap.getOrDefault(PickupDispatchTaskType.DISPATCH.getCode(), Collections.emptyList());
+        statisticsDTO.setDispatchNum(dispatchList.size());
+        Map<PickupDispatchTaskStatus, Long> dispatchStatusCountMap = dispatchList.stream()
+                .collect(Collectors.groupingBy(PickupDispatchTaskEntity::getStatus, Collectors.counting()));
+        statisticsDTO.setNewDispatchNum(Convert.toInt(dispatchStatusCountMap.getOrDefault(PickupDispatchTaskStatus.NEW, 0L), 0));
+        //已签收按签收状态统计：1为已签收（拒收2不属于已签收）
+        statisticsDTO.setSignedNum(Convert.toInt(dispatchList.stream()
+                .filter(entity -> ObjectUtil.equal(entity.getSignStatus(), PickupDispatchTaskSignStatus.RECEIVED))
+                .count(), 0));
+        statisticsDTO.setCancelDispatchNum(Convert.toInt(dispatchStatusCountMap.getOrDefault(PickupDispatchTaskStatus.CANCELLED, 0L), 0));
+
+        return statisticsDTO;
     }
 }
