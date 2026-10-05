@@ -28,7 +28,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -110,8 +109,7 @@ public class OrderMQListener {
         //如果为多个，那就选择工作量最少的那一个
         String date = DateUtil.today();
         //查询每个快递员的任务
-        //List<CourierTaskCountDTO> countByCourierIds = pickupDispatchTaskFeign.findCountByCourierIds(courierIds, PickupDispatchTaskType.codeOf(taskType), date);
-        List<CourierTaskCountDTO> countByCourierIds = this.findCountByCourierIds(courierIds, PickupDispatchTaskType.codeOf(taskType), date);
+        List<CourierTaskCountDTO> countByCourierIds = pickupDispatchTaskFeign.findCountByCourierIds(courierIds, PickupDispatchTaskType.codeOf(taskType), date);
         //寻找最少快递员
         if(CollUtil.isEmpty(countByCourierIds)){
             return CollUtil.getFirst(courierIds);
@@ -134,18 +132,5 @@ public class OrderMQListener {
         //按照任务数量从小到大排序
         CollUtil.sortByProperty(countByCourierIds, "count");
         return CollUtil.getFirst(countByCourierIds).getCourierId();
-    }
-
-    private List<CourierTaskCountDTO> findCountByCourierIds(List<Long> courierIds, PickupDispatchTaskType pickupDispatchTaskType, String date) {
-        //TODO 模拟实现
-        List<CourierTaskCountDTO> list = new ArrayList<>();
-
-        CourierTaskCountDTO courierTaskCountDTO = CourierTaskCountDTO.builder()
-                .courierId(courierIds.get(0))
-                .count(10L)
-                .build();
-        list.add(courierTaskCountDTO);
-
-        return list;
     }
 }

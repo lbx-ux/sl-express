@@ -1,28 +1,33 @@
 package com.sl.ms.work.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
+import cn.hutool.core.date.DateTime;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.sl.ms.oms.api.OrderFeign;
+import com.sl.ms.oms.enums.OrderStatus;
 import com.sl.ms.work.domain.dto.CourierTaskCountDTO;
 import com.sl.ms.work.domain.dto.PickupDispatchTaskDTO;
 import com.sl.ms.work.domain.dto.request.PickupDispatchTaskPageQueryDTO;
 import com.sl.ms.work.domain.dto.response.PickupDispatchTaskStatisticsDTO;
 import com.sl.ms.work.domain.enums.WorkExceptionEnum;
-import com.sl.ms.work.domain.enums.pickupDispatchtask.PickupDispatchTaskAssignedStatus;
-import com.sl.ms.work.domain.enums.pickupDispatchtask.PickupDispatchTaskIsDeleted;
-import com.sl.ms.work.domain.enums.pickupDispatchtask.PickupDispatchTaskStatus;
-import com.sl.ms.work.domain.enums.pickupDispatchtask.PickupDispatchTaskType;
+import com.sl.ms.work.domain.enums.pickupDispatchtask.*;
 import com.sl.ms.work.entity.PickupDispatchTaskEntity;
 import com.sl.ms.work.mapper.TaskPickupDispatchMapper;
 import com.sl.ms.work.service.PickupDispatchTaskService;
+import com.sl.ms.work.service.TransportOrderService;
 import com.sl.transport.common.exception.SLException;
 import com.sl.transport.common.util.PageResponse;
+import com.sl.transport.common.vo.OrderMsg;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,11 +35,92 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class PickupDispatchTaskServiceImpl extends ServiceImpl<TaskPickupDispatchMapper, PickupDispatchTaskEntity> implements PickupDispatchTaskService {
+    private final TransportOrderService transportOrderService;
+    private final OrderFeign orderFeign;
+    private final TaskPickupDispatchMapper taskPickupDispatchMapper;
 
     //更新取派件任务状态
     @Override
     public Boolean updateStatus(PickupDispatchTaskDTO pickupDispatchTaskDTO) {
-        return null;
+        //参数校验
+        PickupDispatchTaskStatus status = pickupDispatchTaskDTO.getStatus();
+        if (ObjectUtil.hasEmpty(pickupDispatchTaskDTO.getId(), status)) {
+            throw new SLException("更新取派件任务状态，id或status不能为空");
+        }
+        //根据id查询任务数据
+        PickupDispatchTaskEntity entity = this.getById(pickupDispatchTaskDTO.getId());
+        if(ObjectUtil.isEmpty(entity)){
+            throw new SLException(WorkExceptionEnum.PICKUP_DISPATCH_TASK_NOT_FOUND);
+        }
+        //根据不同的状态进行不同业务的处理
+        switch (status) {
+            case NEW :{
+                throw new SLException(WorkExceptionEnum.PICKUP_DISPATCH_TASK_STATUS_NOT_NEW);
+            }
+            case COMPLETED:{
+                //完成状态
+                entity.setStatus(PickupDispatchTaskStatus.COMPLETED);
+                entity.setActualEndTime(LocalDateTime.now());
+                //如果是派件任务，必须设置签收状态和签收人
+                if(ObjectUtil.equal(pickupDispatchTaskDTO.getTaskType(),PickupDispatchTaskType.DISPATCH)){
+                    if(ObjectUtil.isEmpty(pickupDispatchTaskDTO.getSignStatus())){
+                        throw new SLException("完成派件任务，签收状态不能为空");
+                    }
+                    //设置签收状态
+                    entity.setSignStatus(pickupDispatchTaskDTO.getSignStatus());
+                    if(ObjectUtil.equal(pickupDispatchTaskDTO.getSignStatus(), PickupDispatchTaskSignStatus.RECEIVED)){
+                        if(ObjectUtil.isEmpty(pickupDispatchTaskDTO.getSignRecipient())){
+                            throw new SLException("完成派件任务，签收人不能为空");
+                        }
+                        //设置签收人
+                        entity.setSignRecipient(pickupDispatchTaskDTO.getSignRecipient());
+                    }
+                }
+                break;
+            }
+            case CANCELLED:{
+                //取消状态
+                if(ObjectUtil.isEmpty(pickupDispatchTaskDTO.getCancelReason())){
+                    throw new SLException("取消任务，原因不能为空");
+                }
+                entity.setStatus(PickupDispatchTaskStatus.CANCELLED);
+                entity.setCancelReason(pickupDispatchTaskDTO.getCancelReason());
+                entity.setCancelReasonDescription(pickupDispatchTaskDTO.getCancelReasonDescription());
+                entity.setCancelTime(LocalDateTime.now());
+
+                if(ObjectUtil.equal(PickupDispatchTaskCancelReason.RETURN_TO_AGENCY,pickupDispatchTaskDTO.getCancelReason())){
+                    //重新调度，向调度中心发送新订单的消息
+                    OrderMsg orderMsg = OrderMsg.builder()
+                            .agencyId(entity.getAgencyId())
+                            .orderId(entity.getOrderId())
+                            .created(DateUtil.current())
+                            .taskType(PickupDispatchTaskType.PICKUP.getCode()) //取件任务
+                            .mark(entity.getMark())
+                            .estimatedEndTime(entity.getEstimatedEndTime()).build();
+                    //发送消息（取消任务发生在取件之前，没有运单，参数直接填入null）
+                    //TODO 目前还没有实现，暂时先注释掉
+                    // this.transportOrderService.sendPickupDispatchTaskMsgToDispatch(null, orderMsg);
+
+                }else if(pickupDispatchTaskDTO.getCancelReason() == PickupDispatchTaskCancelReason.CANCEL_BY_USER){
+                    //原因是用户取消，则订单状态改为取消
+                    orderFeign.updateStatus(ListUtil.toList(entity.getOrderId()), OrderStatus.CANCELLED.getCode());
+                }else {
+                    //其他原因则关闭订单
+                    orderFeign.updateStatus(ListUtil.toList(entity.getOrderId()), OrderStatus.CLOSE.getCode());
+                }
+                break;
+            }
+            default:{
+                throw new SLException("其他未知状态，不能完成更新操作");
+            }
+        }
+
+        boolean result = this.updateById(entity);
+        if(result){
+            //TODO 同步到es
+            return true;
+        }
+        throw new SLException("更新操作失败，请重试");
     }
 
     //批量改派快递员
@@ -116,9 +202,22 @@ public class PickupDispatchTaskServiceImpl extends ServiceImpl<TaskPickupDispatc
         return PageResponse.of(result, PickupDispatchTaskDTO.class);
     }
 
+    /**
+     * 按照当日快递员id列表查询每个快递员的取派件任务数
+     *
+     * @param courierIds             快递员id列表
+     * @param pickupDispatchTaskType 任务类型
+     * @param date                   日期，格式：yyyy-MM-dd 或 yyyyMMdd
+     * @return 任务数
+     */
     @Override
     public List<CourierTaskCountDTO> findCountByCourierIds(List<Long> courierIds, PickupDispatchTaskType pickupDispatchTaskType, String date) {
-        return List.of();
+        //计算一天的时间的边界
+        DateTime dateTime = DateUtil.parse(date);
+        LocalDateTime startDateTime = DateUtil.beginOfDay(dateTime).toLocalDateTime();
+        LocalDateTime endDateTime = DateUtil.endOfDay(dateTime).toLocalDateTime();
+        return taskPickupDispatchMapper
+                .findCountByCourierIds(courierIds, pickupDispatchTaskType.getCode(), startDateTime, endDateTime);
     }
 
     @Override
