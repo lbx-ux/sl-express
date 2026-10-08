@@ -7,6 +7,7 @@ import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.stream.StreamUtil;
+import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -40,10 +41,13 @@ import com.sl.transport.domain.TransportLineNodeDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -195,7 +199,7 @@ public class TransportOrderServiceImpl extends ServiceImpl<TransportOrderMapper,
     }
 
     //发送消息更新订单状态
-    private void sendUpdateStatusMsg(ArrayList<String> list, TransportOrderStatus transportOrderStatus) {
+    private void sendUpdateStatusMsg(List<String> list, TransportOrderStatus transportOrderStatus) {
         String msg = TransportOrderStatusMsg.builder()
                 .idList(list)
                 .statusName(transportOrderStatus.name())
@@ -342,8 +346,85 @@ public class TransportOrderServiceImpl extends ServiceImpl<TransportOrderMapper,
      * @return 是否成功
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean updateStatus(List<String> ids, TransportOrderStatus transportOrderStatus) {
-        return false;
+        //1.参数校验
+        if(ObjectUtil.hasEmpty(ids, transportOrderStatus)) {
+            return false;
+        }
+        //修改订单状态不应该修改为新建状态
+        if(ObjectUtil.equal(transportOrderStatus,TransportOrderStatus.CREATED)){
+            throw new SLException(WorkExceptionEnum.TRANSPORT_ORDER_STATUS_NOT_CREATED);
+        }
+
+        //2.根据不同的状态进行处理
+        List<TransportOrderEntity> transportOrderEntities;
+        if(ObjectUtil.equal(transportOrderStatus,TransportOrderStatus.REJECTED)){
+            //拒收需要重新查询路线，将包裹逆向回去
+            //查询出运单列表一个一个处理，将起点终点的网点进行对调，重新进行路线规划
+            transportOrderEntities = this.listByIds(ids);
+            for (TransportOrderEntity transportOrderEntity : transportOrderEntities) {
+                //设置为拒收运单
+                transportOrderEntity.setStatus(TransportOrderStatus.REJECTED);
+                transportOrderEntity.setIsRejection(true);
+                //根据起始机构规划运输路线，这里要将起点和终点互换
+                Long sendAgentId = transportOrderEntity.getEndAgencyId();//起始网点id
+                Long receiveAgentId = transportOrderEntity.getStartAgencyId();//终点网点id
+
+                //默认参与调度
+                boolean isDispatch = true;
+                if (ObjectUtil.equal(sendAgentId, receiveAgentId)) {
+                    //相同节点，无需调度，直接生成派件任务
+                    isDispatch = false;
+                } else {
+                    TransportLineNodeDTO transportLineNodeDTO = this.transportLineFeign.queryPathByDispatchMethod(sendAgentId, receiveAgentId);
+                    if (ObjectUtil.hasEmpty(transportLineNodeDTO, transportLineNodeDTO.getNodeList())) {
+                        throw new SLException(WorkExceptionEnum.TRANSPORT_LINE_NOT_FOUND);
+                    }
+                    //删除掉第一个机构，逆向回去的第一个节点就是当前所在节点
+                    transportLineNodeDTO.getNodeList().remove(0);
+                    transportOrderEntity.setSchedulingStatus(TransportOrderSchedulingStatus.TO_BE_SCHEDULED);//调度状态：待调度
+                    transportOrderEntity.setCurrentAgencyId(sendAgentId);//当前所在机构id
+                    transportOrderEntity.setNextAgencyId(transportLineNodeDTO.getNodeList().get(0).getId());//下一个机构id
+
+                    //获取到原有节点信息
+                    TransportLineNodeDTO transportLineNode = JSONUtil.toBean(transportOrderEntity.getTransportLine(), TransportLineNodeDTO.class);
+                    //将逆向节点追加到节点列表中
+                    transportLineNode.getNodeList().addAll(transportLineNodeDTO.getNodeList());
+                    //合并成本
+                    transportLineNode.setCost(NumberUtil.add(transportLineNode.getCost(), transportLineNodeDTO.getCost()));
+                    transportOrderEntity.setTransportLine(JSONUtil.toJsonStr(transportLineNode));//完整的运输路线
+                }
+                if (isDispatch) {
+                    //发送消息参与调度
+                    this.sendTransportOrderMsgToDispatch(transportOrderEntity);
+                } else {
+                    //不需要调度，发送消息生成派件任务
+                    transportOrderEntity.setStatus(TransportOrderStatus.ARRIVED_END);
+                    this.sendDispatchTaskMsgToDispatch(transportOrderEntity);
+                }
+            }
+        }else{
+            //非拒收，直接修改状态就行
+            transportOrderEntities=ids.stream()
+                    .map(id-> {
+                        //TODO 发送运单跟踪消息
+
+                        return TransportOrderEntity.builder()
+                                .id(id)
+                                .status(transportOrderStatus)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+        }
+        //3.更新数据库
+        boolean result = this.updateBatchById(transportOrderEntities);
+        if(!result){
+            throw new SLException("修改运单状态失败,请重新尝试");
+        }
+        //发消息通知其他系统运单状态的变化
+        this.sendUpdateStatusMsg(ids, transportOrderStatus);
+        return true;
     }
 
     /**
