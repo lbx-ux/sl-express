@@ -6,6 +6,7 @@ import cn.hutool.core.convert.Convert;
 import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.stream.StreamUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -42,10 +43,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -55,6 +54,7 @@ public class TransportOrderServiceImpl extends ServiceImpl<TransportOrderMapper,
     private final OrderFeign orderFeign;
     private final TransportLineFeign transportLineFeign;
     private final MQFeign mqFeign;
+    private final TransportOrderMapper transportOrderMapper;
 
     /**
      * 订单转运单
@@ -263,7 +263,27 @@ public class TransportOrderServiceImpl extends ServiceImpl<TransportOrderMapper,
      */
     @Override
     public Page<TransportOrderEntity> findByPage(TransportOrderQueryDTO transportOrderQueryDTO) {
-        return null;
+        //分页对象
+        Page<TransportOrderEntity> page = new Page<>(transportOrderQueryDTO.getPage(), transportOrderQueryDTO.getPageSize());
+
+        return this.lambdaQuery()
+                //运单id
+                .like(StrUtil.isNotEmpty(transportOrderQueryDTO.getId()), TransportOrderEntity::getId, transportOrderQueryDTO.getId())
+                //订单id
+                .eq(ObjectUtil.isNotEmpty(transportOrderQueryDTO.getOrderId()), TransportOrderEntity::getOrderId, transportOrderQueryDTO.getOrderId())
+                //运单状态
+                .eq(ObjectUtil.isNotEmpty(transportOrderQueryDTO.getStatus()), TransportOrderEntity::getStatus, transportOrderQueryDTO.getStatus())
+                //调度状态
+                .eq(ObjectUtil.isNotEmpty(transportOrderQueryDTO.getSchedulingStatus()), TransportOrderEntity::getSchedulingStatus, transportOrderQueryDTO.getSchedulingStatus())
+                //起始网点id
+                .eq(ObjectUtil.isNotEmpty(transportOrderQueryDTO.getStartAgencyId()), TransportOrderEntity::getStartAgencyId, transportOrderQueryDTO.getStartAgencyId())
+                //终点网点id
+                .eq(ObjectUtil.isNotEmpty(transportOrderQueryDTO.getEndAgencyId()), TransportOrderEntity::getEndAgencyId, transportOrderQueryDTO.getEndAgencyId())
+                //当前所在机构id
+                .eq(ObjectUtil.isNotEmpty(transportOrderQueryDTO.getCurrentAgencyId()), TransportOrderEntity::getCurrentAgencyId, transportOrderQueryDTO.getCurrentAgencyId())
+                //按照创建时间倒序排序
+                .orderByDesc(TransportOrderEntity::getCreated)
+                .page(page);
     }
 
     /**
@@ -298,7 +318,9 @@ public class TransportOrderServiceImpl extends ServiceImpl<TransportOrderMapper,
      */
     @Override
     public List<TransportOrderEntity> findByIds(String[] ids) {
-        return List.of();
+        return this.lambdaQuery()
+                .in(TransportOrderEntity::getId, ids)
+                .list();
     }
 
     /**
@@ -309,7 +331,7 @@ public class TransportOrderServiceImpl extends ServiceImpl<TransportOrderMapper,
      */
     @Override
     public List<TransportOrderEntity> searchById(String id) {
-        return List.of();
+        return this.findByIds(new String[]{id});
     }
 
     /**
@@ -342,7 +364,16 @@ public class TransportOrderServiceImpl extends ServiceImpl<TransportOrderMapper,
      */
     @Override
     public List<TransportOrderStatusCountDTO> findStatusCount() {
-        return List.of();
+        Map<Integer, Long> countMap = transportOrderMapper.findStatusCount().stream()
+                .collect(Collectors.toMap(TransportOrderStatusCountDTO::getStatusCode, TransportOrderStatusCountDTO::getCount));
+        return StreamUtil.of(TransportOrderStatus.values())
+                .map(transportOrderStatus -> TransportOrderStatusCountDTO.builder()
+                            .status(transportOrderStatus)
+                            .statusCode(transportOrderStatus.getCode())
+                            .count(countMap.getOrDefault(transportOrderStatus.getCode(), 0L))
+                            .build()
+                )
+                .collect(Collectors.toList());
     }
 
 
