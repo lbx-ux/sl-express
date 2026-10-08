@@ -14,6 +14,7 @@ import com.sl.ms.work.domain.enums.pickupDispatchtask.PickupDispatchTaskStatus;
 import com.sl.ms.work.domain.enums.pickupDispatchtask.PickupDispatchTaskType;
 import com.sl.ms.work.entity.PickupDispatchTaskEntity;
 import com.sl.ms.work.service.PickupDispatchTaskService;
+import com.sl.ms.work.service.TransportOrderService;
 import com.sl.transport.common.constant.Constants;
 import com.sl.transport.common.exception.SLException;
 import com.sl.transport.common.vo.CourierMsg;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CourierMQListener {
     private final PickupDispatchTaskService  pickupDispatchTaskService;
+    private final TransportOrderService  transportOrderService;
     private final OrderFeign orderFeign;
 
     /**
@@ -118,7 +120,8 @@ public class CourierMQListener {
         log.info("接收到快递员取件成功的消息 >>> msg = {}", msg);
         //解析消息
         CourierMsg courierMsg = JSONUtil.toBean(msg, CourierMsg.class);
-        System.out.println(courierMsg);
-        //TODO 未实现具体逻辑
+        //订单转运单
+        transportOrderService.orderToTransportOrder(courierMsg.getOrderId());
+        //TODO 发送订单跟踪消息
     }
 }

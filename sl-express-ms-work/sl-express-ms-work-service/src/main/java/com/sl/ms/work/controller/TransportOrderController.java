@@ -11,7 +11,6 @@ import com.sl.ms.work.domain.dto.request.TransportOrderQueryDTO;
 import com.sl.ms.work.domain.dto.response.OrderToTransportOrderDTO;
 import com.sl.ms.work.domain.dto.response.TransportOrderStatusCountDTO;
 import com.sl.ms.work.domain.enums.WorkExceptionEnum;
-import com.sl.ms.work.domain.enums.transportorder.TransportOrderSchedulingStatus;
 import com.sl.ms.work.domain.enums.transportorder.TransportOrderStatus;
 import com.sl.ms.work.entity.TransportOrderEntity;
 import com.sl.ms.work.service.TransportOrderService;
@@ -21,10 +20,10 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,10 +35,9 @@ import java.util.List;
 @RestController
 @Api(tags = "运单服务")
 @RequestMapping("transport-order")
+@RequiredArgsConstructor
 public class TransportOrderController {
-
-    @Resource
-    private TransportOrderService transportOrderService;
+    private final TransportOrderService transportOrderService;
 
     @PostMapping
     @ApiOperation(value = "新增运单", notes = "新增运单（订单转运单）")

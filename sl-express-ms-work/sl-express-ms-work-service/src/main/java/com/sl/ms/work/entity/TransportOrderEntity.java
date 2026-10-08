@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.sl.ms.work.domain.enums.transportorder.TransportOrderSchedulingStatus;
 import com.sl.ms.work.domain.enums.transportorder.TransportOrderStatus;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @TableName("sl_transport_order")
+@Builder
 public class TransportOrderEntity implements Serializable {
 
     @TableId
