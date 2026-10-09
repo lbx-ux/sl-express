@@ -2,7 +2,7 @@
 
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7-brightgreen) ![Spring Cloud Alibaba](https://img.shields.io/badge/Spring%20Cloud%20Alibaba-Nacos%20·%20Gateway%20·%20OpenFeign-blue) ![MySQL](https://img.shields.io/badge/MySQL-8.0-orange) ![Redis](https://img.shields.io/badge/Redis-7-red) ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.x-lightgrey) ![Neo4j](https://img.shields.io/badge/Neo4j-5-008CC1) ![MongoDB](https://img.shields.io/badge/MongoDB-6-47A248) ![xxl-job](https://img.shields.io/badge/xxl--job-2.3-yellow)
 
-> 基于《神领物流》课程**从 0 独立实现**的物流快运平台，覆盖 **下单 → 智能调度 → 干线运输 → 末端派件** 全链路业务，服务用户、快递员、司机、管理四端。
+> 物流快运平台，覆盖 **下单 → 智能调度 → 干线运输 → 末端派件** 全链路业务，服务用户、快递员、司机、管理四端。
 
 ![项目头图](assets/banner.png)
 
